@@ -18,7 +18,11 @@ import java.util.UUID;
 public class JwtService {
 
     private final SecretKey key;
-    private final long accessExpiryMinutes;
+    @Value("${jwt.access-expiry-minutes:3880}")
+    private long accessExpiryMinutes;
+
+    @Value("${jwt.refresh-expiry-days:7}")
+    private long refreshExpiryDays;
 
     public JwtService(@Value("${jwt.secret}") String secret,
                       @Value("${jwt.access-expiry-minutes}") long accessExpiryMinutes) {

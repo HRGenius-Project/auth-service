@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -66,6 +67,19 @@ public class AuthService {
         return createUser(request.username(), request.email(), request.temporaryPassword(), request.roles(), true);
     }
 
+    @Transactional(readOnly = true)
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(u -> new UserResponse(
+                        u.getId(),
+                        u.getUsername(),
+                        u.getEmail(),
+                        u.isEnabled(),
+                        u.getRoles().stream().map(Role::getName).collect(Collectors.toSet())
+                ))
+                .toList();
+    }
+
     @Transactional
     public void deleteUser(String username) {
         userRepository.findByUsername(username).ifPresent(userRepository::delete);
@@ -110,8 +124,13 @@ public class AuthService {
         user.setRoles(roles);
         user.setMustChangePassword(mustChangePassword);
         User saved = userRepository.save(user);
-        return new UserResponse(saved.getId(), saved.getUsername(), saved.getEmail(),
-                saved.getRoles().stream().map(Role::getName).collect(Collectors.toSet()));
+        return new UserResponse(
+                saved.getId(),
+                saved.getUsername(),
+                saved.getEmail(),
+                saved.isEnabled(),
+                saved.getRoles().stream().map(Role::getName).collect(Collectors.toSet())
+        );
     }
 
     private void blacklistAccessToken(String authHeader) {
@@ -121,7 +140,7 @@ public class AuthService {
                 Duration ttl = Duration.between(Instant.now(), claims.getExpiration().toInstant());
                 tokenBlacklistService.blacklist(claims.getId(), ttl);
             } catch (JwtException | IllegalArgumentException e) {
-                // token pehle se invalid hai
+                // invalid token
             }
         }
     }
@@ -131,5 +150,20 @@ public class AuthService {
         String refresh = refreshTokenService.create(user.getId());
         return new TokenResponse(access, refresh, "Bearer",
                 jwtService.getAccessExpirySeconds(), user.isMustChangePassword());
+    }
+
+    @Transactional
+    public UserResponse toggleUserStatus(Long userId, boolean enabled) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setEnabled(enabled);
+        User updated = userRepository.save(user);
+        return new UserResponse(
+                updated.getId(),
+                updated.getUsername(),
+                updated.getEmail(),
+                updated.isEnabled(),
+                updated.getRoles().stream().map(Role::getName).collect(Collectors.toSet())
+        );
     }
 }

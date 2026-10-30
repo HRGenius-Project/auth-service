@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -56,5 +57,19 @@ public class AuthController {
         return Map.of(
                 "username", authentication.getName(),
                 "roles", authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList());
+    }
+
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserResponse>> getAllUsers() {
+        return ResponseEntity.ok(authService.getAllUsers());
+    }
+
+    @PatchMapping("/users/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserResponse> toggleUserStatus(
+            @PathVariable Long id,
+            @RequestParam boolean enabled) {
+        return ResponseEntity.ok(authService.toggleUserStatus(id, enabled));
     }
 }
